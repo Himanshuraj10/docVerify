@@ -70,13 +70,17 @@ def initialize_database_data():
             ))
             db.commit()
 
-        # 2. Section 15: Seed Synthetic Authorized Registry Demo Records
-        if db.query(RegistryRecord).count() == 0:
-            reg_json_path = Path(__file__).resolve().parent / "data" / "synthetic_registry.json"
-            if reg_json_path.exists():
-                with open(reg_json_path, "r", encoding="utf-8") as f:
-                    records = json.load(f)
-                    for r in records:
+        # 2. Section 15: Seed Synthetic Authorized Registry Demo Records (Aadhaar, PAN, KYC)
+        reg_json_path = Path(__file__).resolve().parent / "data" / "synthetic_registry.json"
+        if reg_json_path.exists():
+            with open(reg_json_path, "r", encoding="utf-8") as f:
+                records = json.load(f)
+                added_count = 0
+                for r in records:
+                    existing_rec = db.query(RegistryRecord).filter(
+                        RegistryRecord.certificate_id == r["certificate_id"]
+                    ).first()
+                    if not existing_rec:
                         db.add(RegistryRecord(
                             certificate_id=r["certificate_id"],
                             name=r["name"],
@@ -88,8 +92,10 @@ def initialize_database_data():
                             is_synthetic=True,
                             metadata_json=r.get("metadata_json", {})
                         ))
+                        added_count += 1
+                if added_count > 0:
                     db.commit()
-                    print(f"[DocVerify System] Seeded {len(records)} demo registry records.")
+                    print(f"[DocVerify System] Seeded {added_count} new Aadhaar/PAN KYC registry records.")
 
         # 3. Section 28: Seed Default FAQs
         if db.query(FAQ).count() == 0:

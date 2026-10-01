@@ -19,16 +19,24 @@ from backend.services import (
     DocumentValidator, RegistryService, TamperAnalysisService,
     ForensicHeatmapService, anomaly_detector, RiskEngine,
     DecisionEngine, DocumentHashingService, blockchain_service,
-    QRService
+    QRService, supabase_service
 )
 
 router = APIRouter(prefix="/api", tags=["Verification Pipeline"])
+
+@router.get("/supabase/status")
+def get_supabase_status():
+    return supabase_service.check_connection()
+
+@router.post("/supabase/sync")
+def sync_all_data_to_supabase(db: Session = Depends(get_db)):
+    return supabase_service.sync_all_local_data(db)
 
 @router.post("/verify", response_model=FixedVerificationResponse)
 async def verify_document(
     request: Request,
     file: UploadFile = File(...),
-    document_type: str = Form("Degree Certificate"),
+    document_type: str = Form("Auto-Detect"),
     consent: bool = Form(...),
     current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
@@ -86,13 +94,14 @@ async def verify_document(
     ocr_conf = ocr_result.get("confidence", 85.0)
     ocr_boxes = ocr_result.get("boxes", [])
 
-    # 5. Document Understanding Layer
+    # 5. Document Understanding Layer (with Auto-Detection of PAN / Aadhaar)
     doc_understanding = DocumentUnderstandingService.analyze_document(raw_text, ocr_boxes, document_type)
+    resolved_doc_type = doc_understanding.get("document_type", document_type)
     extracted_fields = doc_understanding.get("extracted_fields", {})
     field_positions = doc_understanding.get("field_positions", {})
 
     # 6. Information Validation
-    val_result = DocumentValidator.validate_fields(extracted_fields, document_type)
+    val_result = DocumentValidator.validate_fields(extracted_fields, resolved_doc_type)
 
     # 7. Authorized Registry Cross-Check
     reg_result = RegistryService.cross_check(db, extracted_fields)
@@ -126,7 +135,8 @@ async def verify_document(
         tamper_result=tamper_result,
         ocr_confidence=ocr_conf,
         validation_result=val_result,
-        ml_result=ml_result
+        ml_result=ml_result,
+        extracted_fields=extracted_fields
     )
     risk_score = risk_result["risk_score"]
 
@@ -157,7 +167,27 @@ async def verify_document(
         "status": final_status,
         "risk_score": risk_score,
         "ocr_confidence": ocr_conf,
-        "document_type": document_type,
+        "document_type": resolved_doc_type,
+        "declared_document_type": document_type,
+        "auto_detected_type": resolved_doc_type,
+        "was_auto_corrected": doc_understanding.get("was_auto_corrected", False),
+        "supabase": {
+            "project_id": settings.SUPABASE_PROJECT_ID,
+            "url": settings.SUPABASE_URL,
+            "connected": True
+        },
+        "extracted_fields": extracted_fields,
+        "ocr_details": {
+            "engine": ocr_result.get("engine", "RapidOCR"),
+            "declared_type": document_type,
+            "auto_detected_type": resolved_doc_type,
+            "was_auto_corrected": doc_understanding.get("was_auto_corrected", False),
+            "raw_text": raw_text,
+            "raw_lines": doc_understanding.get("raw_lines", []),
+            "boxes": ocr_boxes,
+            "field_count": len(extracted_fields),
+            "supabase_project": settings.SUPABASE_PROJECT_ID
+        },
         "registry": {
             "found": reg_result["found"],
             "certificate_id_match": reg_result["certificate_id_match"],
@@ -174,7 +204,9 @@ async def verify_document(
         "risk_analysis": {
             "level": risk_result["level"],
             "reason": risk_result["reason"],
-            "breakdown": risk_result["breakdown"]
+            "breakdown": risk_result["breakdown"],
+            "factors": risk_result.get("factors", []),
+            "problems_found": risk_result.get("problems_found", [])
         },
         "heatmap": {
             "overall_score": heatmap_result["overall_score"],
@@ -205,7 +237,7 @@ async def verify_document(
         file_size=len(contents),
         mime_type=file.content_type or "application/octet-stream",
         file_hash=doc_hash,
-        document_type=document_type
+        document_type=resolved_doc_type
     )
     db.add(db_document)
     db.flush()
@@ -256,6 +288,9 @@ async def verify_document(
     ))
 
     db.commit()
+
+    # Sync verification record to Supabase Cloud (non-blocking)
+    supabase_service.sync_verification_result(response_payload)
 
     return response_payload
 

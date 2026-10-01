@@ -124,9 +124,13 @@ class RiskAnalysisResult(BaseModel):
     level: str   # LOW, MEDIUM, HIGH
     reason: str
     breakdown: Optional[Dict[str, Any]] = None
+    factors: Optional[List[str]] = []
+    problems_found: Optional[List[Dict[str, Any]]] = []
 
 class HeatmapRegion(BaseModel):
     label: str
+    extracted_text: Optional[str] = None
+    finding: Optional[str] = None
     x: int
     y: int
     width: int
@@ -166,7 +170,13 @@ class FixedVerificationResponse(BaseModel):
     status: str  # VERIFIED, SUSPICIOUS, REJECTED
     risk_score: int
     ocr_confidence: float
-    document_type: str = "Degree Certificate"
+    document_type: str = "Aadhaar Card"
+    declared_document_type: Optional[str] = "Auto-Detect"
+    auto_detected_type: Optional[str] = None
+    was_auto_corrected: Optional[bool] = False
+    supabase: Optional[Dict[str, Any]] = None
+    extracted_fields: Optional[Dict[str, Any]] = {}
+    ocr_details: Optional[Dict[str, Any]] = {}
     registry: RegistryCheckResult
     tamper_analysis: TamperAnalysisResult
     risk_analysis: RiskAnalysisResult

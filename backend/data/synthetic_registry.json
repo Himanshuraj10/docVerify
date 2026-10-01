@@ -1,5 +1,73 @@
 [
   {
+    "certificate_id": "4582-9104-3829",
+    "name": "Rahul Sharma",
+    "dob": "12/04/1998",
+    "institution": "UIDAI - Government of India",
+    "course": "Aadhaar Identity Card (Male)",
+    "issue_year": 2026,
+    "status": "ACTIVE",
+    "is_synthetic": true,
+    "metadata_json": {
+      "document_type": "Aadhaar Card",
+      "gender": "Male",
+      "state": "Maharashtra",
+      "registry_authority": "Synthetic UIDAI KYC Registry - Demo Only",
+      "security_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  {
+    "certificate_id": "ABCDE1234F",
+    "name": "Priya Patel",
+    "dob": "18/08/1999",
+    "institution": "Income Tax Department - Govt of India",
+    "course": "Permanent Account Number (PAN Card)",
+    "issue_year": 2026,
+    "status": "ACTIVE",
+    "is_synthetic": true,
+    "metadata_json": {
+      "document_type": "PAN Card",
+      "father_name": "Suresh Patel",
+      "category": "Individual Citizen",
+      "registry_authority": "Synthetic NSDL / Income Tax Registry - Demo Only",
+      "security_hash": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+    }
+  },
+  {
+    "certificate_id": "7410-8520-9630",
+    "name": "Amit Kumar Verma",
+    "dob": "05/11/1995",
+    "institution": "UIDAI - Government of India",
+    "course": "Aadhaar Identity Card (Male)",
+    "issue_year": 2025,
+    "status": "ACTIVE",
+    "is_synthetic": true,
+    "metadata_json": {
+      "document_type": "Aadhaar Card",
+      "gender": "Male",
+      "state": "Delhi NCR",
+      "registry_authority": "Synthetic UIDAI KYC Registry - Demo Only",
+      "security_hash": "3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d"
+    }
+  },
+  {
+    "certificate_id": "PQRSX5678K",
+    "name": "Ananya Sen",
+    "dob": "22/01/2000",
+    "institution": "Income Tax Department - Govt of India",
+    "course": "Permanent Account Number (PAN Card)",
+    "issue_year": 2026,
+    "status": "ACTIVE",
+    "is_synthetic": true,
+    "metadata_json": {
+      "document_type": "PAN Card",
+      "father_name": "Debashish Sen",
+      "category": "Individual Citizen",
+      "registry_authority": "Synthetic NSDL / Income Tax Registry - Demo Only",
+      "security_hash": "2bb80e020231f93d85068600fd97b0821e0129e00980c6c6dce85e8db1952ee8"
+    }
+  },
+  {
     "certificate_id": "CERT-2026-IND-01",
     "name": "Rahul Sharma",
     "dob": "12/04/2005",
@@ -9,58 +77,8 @@
     "status": "ACTIVE",
     "is_synthetic": true,
     "metadata_json": {
-      "grade": "First Class with Distinction",
-      "cgpa": "9.4",
-      "registry_authority": "Synthetic Academic Registry - Demo Only",
-      "security_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    }
-  },
-  {
-    "certificate_id": "CERT-2026-IND-02",
-    "name": "Priya Patel",
-    "dob": "18/08/2004",
-    "institution": "Apex Institute of Science & Technology",
-    "course": "Master of Science in Artificial Intelligence",
-    "issue_year": 2026,
-    "status": "ACTIVE",
-    "is_synthetic": true,
-    "metadata_json": {
-      "grade": "Distinction",
-      "cgpa": "9.8",
-      "registry_authority": "Synthetic Academic Registry - Demo Only",
-      "security_hash": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
-    }
-  },
-  {
-    "certificate_id": "CERT-2026-IND-03",
-    "name": "Amit Kumar Verma",
-    "dob": "05/11/2003",
-    "institution": "Central Polytechnic College",
-    "course": "Diploma in Mechanical Engineering",
-    "issue_year": 2025,
-    "status": "ACTIVE",
-    "is_synthetic": true,
-    "metadata_json": {
-      "grade": "First Class",
-      "cgpa": "8.7",
-      "registry_authority": "Synthetic Academic Registry - Demo Only",
-      "security_hash": "3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d"
-    }
-  },
-  {
-    "certificate_id": "CERT-2026-IND-04",
-    "name": "Ananya Sen",
-    "dob": "22/01/2005",
-    "institution": "St. Xavier Institute of Management",
-    "course": "Bachelor of Business Administration",
-    "issue_year": 2026,
-    "status": "ACTIVE",
-    "is_synthetic": true,
-    "metadata_json": {
-      "grade": "Honours",
-      "cgpa": "9.1",
-      "registry_authority": "Synthetic Academic Registry - Demo Only",
-      "security_hash": "2bb80e020231f93d85068600fd97b0821e0129e00980c6c6dce85e8db1952ee8"
+      "document_type": "Degree Certificate",
+      "registry_authority": "Synthetic Registry - Demo Only"
     }
   }
 ]

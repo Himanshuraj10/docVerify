@@ -17,7 +17,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "docverify-super-secret-jwt-key-2026-production")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
-    
+
+    # Supabase Cloud Integration
+    SUPABASE_PROJECT_ID: str = os.getenv("SUPABASE_PROJECT_ID", "qplrpyjfxiddhezjutqa")
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://qplrpyjfxiddhezjutqa.supabase.co")
+    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "sb_publishable_Hx3PofzCvtAvwy_W4qWovQ_BSSlTMz6")
+
     # First Owner Setup
     OWNER_EMAIL: str = os.getenv("OWNER_EMAIL", "owner@docverify.local")
     OWNER_NAME: str = os.getenv("OWNER_NAME", "System Owner")
@@ -30,7 +35,7 @@ class Settings(BaseSettings):
 
     # Storage & Processing
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
-    OCR_ENGINE: str = os.getenv("OCR_ENGINE", "tesseract")
+    OCR_ENGINE: str = os.getenv("OCR_ENGINE", "rapidocr")
     APP_ENV: str = os.getenv("APP_ENV", "development")
 
     class Config:

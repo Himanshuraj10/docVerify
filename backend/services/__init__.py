@@ -12,11 +12,12 @@ from backend.services.hashing import DocumentHashingService
 from backend.services.blockchain import blockchain_service
 from backend.services.qr import QRService
 from backend.services.notifications import AuditLogger
+from backend.services.supabase_service import supabase_service
 
 __all__ = [
     "DocumentPreprocessor", "OCRService", "DocumentUnderstandingService",
     "DocumentValidator", "RegistryService", "TamperAnalysisService",
     "ForensicHeatmapService", "anomaly_detector", "RiskEngine",
     "DecisionEngine", "DocumentHashingService", "blockchain_service",
-    "QRService", "AuditLogger"
+    "QRService", "AuditLogger", "supabase_service"
 ]

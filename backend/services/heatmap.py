@@ -1,15 +1,14 @@
 import os
 import cv2
 import numpy as np
-from PIL import Image
-from typing import Dict, Any, List, Optional
-from pathlib import Path
+from typing import Dict, Any, List
 from backend.config import settings
 
 class ForensicHeatmapService:
     """
-    Generates explainable, signal-driven forensic heatmaps and region overlays.
-    Uses actual validation signals, registry comparisons, and tamper indicators.
+    Generates explainable, pixel-accurate forensic heatmaps and region anchors.
+    Maps actual OCR bounding boxes, extracted field values, registry match status,
+    and localized digital tamper/scribble regions onto the card image.
     """
 
     @staticmethod
@@ -25,145 +24,200 @@ class ForensicHeatmapService:
         h, w, _ = cv_img.shape
         regions: List[Dict[str, Any]] = []
 
-        # Create overlay mask initialized to clean/zero
-        overlay_mask = np.zeros((h, w), dtype=np.float32)
+        reg_found = registry_result.get("found", False)
+        cert_matched = registry_result.get("certificate_id_match", False)
+        name_matched = registry_result.get("name_match", False)
+        dob_matched = registry_result.get("dob_match", False)
+        inst_matched = registry_result.get("institution_match", False)
 
-        # Standard document anchor regions if exact box not detected
+        # Fallback coordinates only when a field was not found in OCR boxes
         default_layout = {
-            "certificate_id": {"x": int(w * 0.55), "y": int(h * 0.15), "w": int(w * 0.35), "h": int(h * 0.08)},
-            "name": {"x": int(w * 0.20), "y": int(h * 0.38), "w": int(w * 0.60), "h": int(h * 0.09)},
-            "dob": {"x": int(w * 0.20), "y": int(h * 0.48), "w": int(w * 0.30), "h": int(h * 0.07)},
-            "institution": {"x": int(w * 0.15), "y": int(h * 0.22), "w": int(w * 0.70), "h": int(h * 0.10)},
-            "course": {"x": int(w * 0.15), "y": int(h * 0.56), "w": int(w * 0.70), "h": int(h * 0.09)},
-            "signature": {"x": int(w * 0.65), "y": int(h * 0.78), "w": int(w * 0.28), "h": int(h * 0.12)},
-            "seal_or_qr": {"x": int(w * 0.10), "y": int(h * 0.76), "w": int(w * 0.20), "h": int(h * 0.15)}
+            "certificate_id": {"x": int(w * 0.30), "y": int(h * 0.76), "w": int(w * 0.42), "h": int(h * 0.11)},
+            "name": {"x": int(w * 0.05), "y": int(h * 0.56), "w": int(w * 0.50), "h": int(h * 0.09)},
+            "dob": {"x": int(w * 0.05), "y": int(h * 0.82), "w": int(w * 0.25), "h": int(h * 0.09)},
+            "institution": {"x": int(w * 0.05), "y": int(h * 0.12), "w": int(w * 0.85), "h": int(h * 0.12)},
         }
 
-        # 1. Certificate ID Region
-        cert_matched = registry_result.get("certificate_id_match", False)
-        reg_found = registry_result.get("found", False)
-        pos = field_positions.get("certificate_id") or default_layout["certificate_id"]
-        
-        if not reg_found:
-            cert_score = 0.88
-            cert_status = "HIGH"
-        elif not cert_matched:
-            cert_score = 0.92
-            cert_status = "HIGH"
+        # 1. Aadhaar / PAN Number Anchor
+        id_val = extracted_fields.get("certificate_id")
+        pos_id = field_positions.get("certificate_id") or default_layout["certificate_id"]
+        if not id_val:
+            id_score, id_status = 0.95, "HIGH"
+            id_text = "[MISSING — No Valid PAN / Aadhaar Number Found]"
+            id_finding = "Critical: Mandatory 10-char PAN or 12-digit Aadhaar number is missing on this card."
+        elif not reg_found or not cert_matched:
+            id_score, id_status = 0.88, "HIGH"
+            id_text = str(id_val)
+            id_finding = f"Unregistered ID: '{id_val}' was not found in the UIDAI / Income Tax registry."
         else:
-            cert_score = 0.05
-            cert_status = "LOW"
+            id_score, id_status = 0.04, "LOW"
+            id_text = str(id_val)
+            id_finding = f"Verified: '{id_val}' matches active record in Authorized Document Registry."
 
         regions.append({
-            "label": "Certificate ID",
-            "x": int(pos["x"]),
-            "y": int(pos["y"]),
-            "width": int(pos.get("w", pos.get("width", 150))),
-            "height": int(pos.get("h", pos.get("height", 40))),
-            "score": cert_score,
-            "status": cert_status
+            "label": "Aadhaar / PAN Number",
+            "extracted_text": id_text,
+            "finding": id_finding,
+            "x": int(pos_id["x"]),
+            "y": int(pos_id["y"]),
+            "width": int(pos_id.get("w", pos_id.get("width", 180))),
+            "height": int(pos_id.get("h", pos_id.get("height", 42))),
+            "score": id_score,
+            "status": id_status
         })
 
-        # 2. Candidate Name Region
-        name_matched = registry_result.get("name_match", False)
+        # 2. Cardholder Name Anchor
+        name_val = extracted_fields.get("name")
         pos_name = field_positions.get("name") or default_layout["name"]
-        if not reg_found:
-            name_score = 0.75
-            name_status = "MODERATE"
+        if not name_val:
+            name_score, name_status = 0.85, "HIGH"
+            name_text = "[MISSING — Name Not Detected]"
+            name_finding = "Cardholder name could not be extracted from the document."
+        elif "placeholder" in str(name_val).lower() or "first name" in str(name_val).lower():
+            name_score, name_status = 0.92, "HIGH"
+            name_text = str(name_val)
+            name_finding = "Invalid Template Text: Card contains sample placeholder 'FIRST NAME MIDDLE NAME SURNAME'."
+        elif not reg_found:
+            name_score, name_status = 0.72, "MODERATE"
+            name_text = str(name_val)
+            name_finding = f"Extracted '{name_val}', but no matching registry record exists to verify identity."
         elif not name_matched:
-            name_score = 0.85
-            name_status = "HIGH"
+            name_score, name_status = 0.90, "HIGH"
+            name_text = str(name_val)
+            name_finding = f"Name Mismatch / Forgery: Card shows '{name_val}', which contradicts registered holder."
         else:
-            name_score = 0.04
-            name_status = "LOW"
+            name_score, name_status = 0.04, "LOW"
+            name_text = str(name_val)
+            name_finding = f"Verified: Holder name '{name_val}' matches official registry record."
 
         regions.append({
-            "label": "Candidate Name",
+            "label": "Cardholder Full Name",
+            "extracted_text": name_text,
+            "finding": name_finding,
             "x": int(pos_name["x"]),
             "y": int(pos_name["y"]),
-            "width": int(pos_name.get("w", pos_name.get("width", 250))),
-            "height": int(pos_name.get("h", pos_name.get("height", 45))),
+            "width": int(pos_name.get("w", pos_name.get("width", 260))),
+            "height": int(pos_name.get("h", pos_name.get("height", 40))),
             "score": name_score,
             "status": name_status
         })
 
-        # 3. Date of Birth Region
-        dob_matched = registry_result.get("dob_match", False)
+        # 3. Date of Birth (DOB) Anchor
+        dob_val = extracted_fields.get("dob")
         pos_dob = field_positions.get("dob") or default_layout["dob"]
-        if not reg_found:
-            dob_score = 0.50
-            dob_status = "ATTENTION"
+        if not dob_val:
+            dob_score, dob_status = 0.65, "MODERATE"
+            dob_text = "[MISSING — DOB Not Found]"
+            dob_finding = "Date of Birth field was not found or is illegible."
+        elif "placeholder" in str(dob_val).lower() or "dd/mm" in str(dob_val).lower():
+            dob_score, dob_status = 0.88, "HIGH"
+            dob_text = str(dob_val)
+            dob_finding = "Invalid Template Text: DOB contains literal 'DD/MM/YYYY' placeholder instead of a real date."
+        elif not reg_found:
+            dob_score, dob_status = 0.50, "ATTENTION"
+            dob_text = str(dob_val)
+            dob_finding = f"Extracted DOB '{dob_val}', unverified against registry."
         elif not dob_matched:
-            dob_score = 0.78
-            dob_status = "MODERATE"
+            dob_score, dob_status = 0.80, "HIGH"
+            dob_text = str(dob_val)
+            dob_finding = f"DOB Mismatch: '{dob_val}' does not match registry DOB."
         else:
-            dob_score = 0.03
-            dob_status = "LOW"
+            dob_score, dob_status = 0.03, "LOW"
+            dob_text = str(dob_val)
+            dob_finding = f"Verified: DOB '{dob_val}' matches registry record."
 
         regions.append({
-            "label": "Date of Birth",
+            "label": "Date of Birth (DOB)",
+            "extracted_text": dob_text,
+            "finding": dob_finding,
             "x": int(pos_dob["x"]),
             "y": int(pos_dob["y"]),
-            "width": int(pos_dob.get("w", pos_dob.get("width", 140))),
+            "width": int(pos_dob.get("w", pos_dob.get("width", 150))),
             "height": int(pos_dob.get("h", pos_dob.get("height", 35))),
             "score": dob_score,
             "status": dob_status
         })
 
-        # 4. Institution Region
-        inst_matched = registry_result.get("institution_match", False)
+        # 4. Issuing Authority Header Anchor
+        inst_val = extracted_fields.get("institution")
         pos_inst = field_positions.get("institution") or default_layout["institution"]
-        if not reg_found:
-            inst_score = 0.60
-            inst_status = "ATTENTION"
+        if not inst_val:
+            inst_score, inst_status = 0.60, "ATTENTION"
+            inst_text = "[Authority Header Not Detected]"
+            inst_finding = "Could not confirm UIDAI or Income Tax Department header."
+        elif not reg_found:
+            inst_score, inst_status = 0.25, "ATTENTION"
+            inst_text = str(inst_val)
+            inst_finding = f"Header reads '{inst_val}', but card ID is not registered."
         elif not inst_matched:
-            inst_score = 0.70
-            inst_status = "MODERATE"
+            inst_score, inst_status = 0.70, "MODERATE"
+            inst_text = str(inst_val)
+            inst_finding = f"Authority '{inst_val}' differs from expected registry authority."
         else:
-            inst_score = 0.05
-            inst_status = "LOW"
+            inst_score, inst_status = 0.05, "LOW"
+            inst_text = str(inst_val)
+            inst_finding = f"Verified Authority: '{inst_val}'."
 
         regions.append({
-            "label": "Institution Authority",
+            "label": "Issuing Authority Header",
+            "extracted_text": inst_text,
+            "finding": inst_finding,
             "x": int(pos_inst["x"]),
             "y": int(pos_inst["y"]),
             "width": int(pos_inst.get("w", pos_inst.get("width", 280))),
-            "height": int(pos_inst.get("h", pos_inst.get("height", 50))),
+            "height": int(pos_inst.get("h", pos_inst.get("height", 42))),
             "score": inst_score,
             "status": inst_status
         })
 
-        # 5. Signature & Stamp Forensic Region
-        tamper_score = tamper_result.get("tamper_score", 0.05)
-        pos_sig = default_layout["signature"]
-        if tamper_score >= 0.40:
-            sig_score = 0.68
-            sig_status = "MODERATE"
-        elif tamper_score >= 0.20:
-            sig_score = 0.35
-            sig_status = "ATTENTION"
-        else:
-            sig_score = 0.08
-            sig_status = "LOW"
+        # 5. Add Exact Detected Digital Tamper / Scribble / Paint Regions!
+        tamper_patches = tamper_result.get("tamper_regions", [])
+        for idx, patch in enumerate(tamper_patches[:5]):
+            regions.append({
+                "label": f"Tamper / Edit Anomaly #{idx + 1}",
+                "extracted_text": "[Digital Paint / Scribble / Spliced Overlay]",
+                "finding": f"Visual Tampering Detected: Localized digital marking or edited patch at [{patch['x']}, {patch['y']}, {patch['w']}x{patch['h']}].",
+                "x": int(patch["x"]),
+                "y": int(patch["y"]),
+                "width": int(patch["w"]),
+                "height": int(patch["h"]),
+                "score": float(patch.get("score", 0.89)),
+                "status": "HIGH"
+            })
 
-        regions.append({
-            "label": "Signature & Authorization",
-            "x": int(pos_sig["x"]),
-            "y": int(pos_sig["y"]),
-            "width": int(pos_sig["w"]),
-            "height": int(pos_sig["h"]),
-            "score": sig_score,
-            "status": sig_status
-        })
+        # 6. Also add any additional real OCR text boxes not already covered so user sees all OCR regions
+        covered_coords = [(r["x"], r["y"]) for r in regions]
+        extra_added = 0
+        for box in ocr_boxes:
+            bx, by, bw, bh = int(box["x"]), int(box["y"]), int(box["w"]), int(box["h"])
+            b_txt = str(box.get("text", "")).strip()
+            if not b_txt or b_txt.startswith("["):
+                continue
+            # Check if close to an already-added anchor
+            if any(abs(bx - cx) < 25 and abs(by - cy) < 25 for cx, cy in covered_coords):
+                continue
+            if extra_added < 4:
+                is_placeholder = any(k in b_txt.upper() for k in ["FIRSTNAME", "FRSTNAME", "SURNAME", "DOMMYYYY", "DD/MM"])
+                regions.append({
+                    "label": f"OCR Text Block ({round(float(box.get('conf', 85)), 0)}% conf)",
+                    "extracted_text": b_txt,
+                    "finding": "Template placeholder text detected." if is_placeholder else f"OCR extracted text '{b_txt}' at [{bx}, {by}].",
+                    "x": bx,
+                    "y": by,
+                    "width": bw,
+                    "height": bh,
+                    "score": 0.78 if is_placeholder else 0.08,
+                    "status": "HIGH" if is_placeholder else "LOW"
+                })
+                covered_coords.append((bx, by))
+                extra_added += 1
 
-        # Render Colorized Overlay
-        # Color mapping: Green (low concern), Yellow (attention), Orange (moderate), Red (high)
-        # Note: BGR in OpenCV
+        # Render Colorized Overlay on the Card Image
         color_map = {
-            "LOW": (40, 180, 40),       # Green
-            "ATTENTION": (0, 215, 255),  # Yellow
-            "MODERATE": (0, 140, 255),   # Orange
-            "HIGH": (30, 30, 230)        # Red
+            "LOW": (40, 185, 40),        # Green (BGR)
+            "ATTENTION": (0, 210, 255),  # Yellow (BGR)
+            "MODERATE": (0, 135, 255),   # Orange (BGR)
+            "HIGH": (30, 30, 235)        # Red (BGR)
         }
 
         heatmap_canvas = cv_img.copy()
@@ -171,30 +225,39 @@ class ForensicHeatmapService:
 
         for r in regions:
             rx, ry, rw, rh = r["x"], r["y"], r["width"], r["height"]
-            # Clamp boundaries
-            rx = max(0, min(rx, w - 10))
-            ry = max(0, min(ry, h - 10))
-            rw = max(10, min(rw, w - rx))
-            rh = max(10, min(rh, h - ry))
+            rx = max(2, min(rx, w - 12))
+            ry = max(2, min(ry, h - 12))
+            rw = max(12, min(rw, w - rx - 2))
+            rh = max(12, min(rh, h - ry - 2))
 
-            color = color_map.get(r["status"], (40, 180, 40))
-            # Draw translucent filled box and contour border
+            color = color_map.get(r["status"], (40, 185, 40))
             cv2.rectangle(overlay, (rx, ry), (rx + rw, ry + rh), color, -1)
             cv2.rectangle(heatmap_canvas, (rx, ry), (rx + rw, ry + rh), color, 2)
 
-        # Blend overlay (40% color mask, 60% original image)
-        cv2.addWeighted(overlay, 0.35, heatmap_canvas, 0.65, 0, heatmap_canvas)
+            # Draw compact label tag above the box
+            tag_text = f"{r['label'][:22]} ({r['status']})"
+            tag_y = max(16, ry - 5)
+            cv2.putText(
+                heatmap_canvas,
+                tag_text,
+                (rx, tag_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.42,
+                color,
+                1,
+                cv2.LINE_AA
+            )
 
-        # Save heatmap image to uploads directory
+        cv2.addWeighted(overlay, 0.34, heatmap_canvas, 0.66, 0, heatmap_canvas)
+
         heatmap_dir = settings.UPLOAD_DIR / "heatmaps"
         heatmap_dir.mkdir(parents=True, exist_ok=True)
         heatmap_filename = f"{verification_id}_heatmap.jpg"
         heatmap_path = heatmap_dir / heatmap_filename
         cv2.imwrite(str(heatmap_path), heatmap_canvas)
 
-        # Compute overall heatmap anomaly score
-        overall_score = round(float(np.mean([r["score"] for r in regions])), 2)
-        if overall_score >= 0.50:
+        overall_score = round(float(np.mean([r["score"] for r in regions])), 2) if regions else 0.05
+        if any(r["status"] == "HIGH" for r in regions) or overall_score >= 0.45:
             level = "HIGH"
         elif overall_score >= 0.25:
             level = "MODERATE"

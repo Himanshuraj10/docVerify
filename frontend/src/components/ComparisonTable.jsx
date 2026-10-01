@@ -11,11 +11,11 @@ export default function ComparisonTable({ comparisons = [] }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-      <div className="border-b border-slate-100 p-4">
-        <h3 className="text-sm font-semibold text-slate-900">Synthetic Registry Field Comparison</h3>
-        <p className="text-xs text-slate-500">
-          Cross-checking extracted OCR entities against synthetic academic registry
+    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="border-b border-slate-100 p-5 bg-slate-900 text-white">
+        <h3 className="text-sm font-extrabold text-white">UIDAI (Aadhaar) & Income Tax (PAN) Registry Cross-Check</h3>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Side-by-side comparison of OCR-extracted card fields vs Official & Supabase Registry
         </p>
       </div>
 
