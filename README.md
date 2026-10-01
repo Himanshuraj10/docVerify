@@ -259,3 +259,5 @@ This tests:
 - **Backend-Enforced RBAC**: Endpoint security is strictly enforced in FastAPI route dependencies; unauthorized requests receive `403 Forbidden`.
 - **Public Verification Separation**: The public verification endpoint `/verify/{id}` exposes only non-sensitive cryptographic proofs (Document SHA-256 digest, EVM Transaction ID, Block number, and Status) without leaking source documents or internal forensic heatmaps.
 - **Read-Only Blockchain**: Administrative panels have no functionality to modify, delete, or rewrite blockchain transactions.
+#   d o c V e r i f y  
+ 
