@@ -23,6 +23,7 @@ from backend.routes import (
     owner_router
 )
 
+
 def initialize_database_data():
     """Initializes tables, seeds first owner, demo registry, FAQs, and settings."""
     # Ensure database schema is created
@@ -100,15 +101,15 @@ def initialize_database_data():
         # 3. Section 28: Seed Default FAQs
         if db.query(FAQ).count() == 0:
             default_faqs = [
-                ("How do I upload a document?", "Navigate to the 'Verify Document' page, drag and drop your document file (PNG, JPG, or PDF), confirm the consent declaration, and click 'Initiate Verification Pipeline'.", "General", 1),
-                ("What documents are supported?", "We currently support academic degrees, diplomas, transcripts, and official institutional certificates up to 10MB in PNG, JPG, JPEG, and PDF formats.", "General", 2),
-                ("Why is my document suspicious?", "A document is classified as 'Suspicious' when minor discrepancies exist (such as date formats, partial name spelling variances, or compression artifacts) without definitive proof of forgery.", "Forensics", 3),
-                ("What does risk score mean?", "The risk score is an explainable 0 to 100 rating computed by our deterministic rules engine. 0–20 indicates LOW risk, 21–50 is MEDIUM risk, and 51–100 is HIGH risk.", "Risk Engine", 4),
-                ("Why did OCR fail?", "OCR may encounter difficulty if the uploaded scan has severe motion blur, low lighting, or resolution under 150 DPI. We recommend uploading a straight, high-contrast scan.", "OCR", 5),
-                ("What is blockchain verification?", "Our system computes an immutable SHA-256 cryptographic digest of your document and registers a verification receipt on an EVM-compatible blockchain ledger. No private personal data or original images are ever stored on-chain.", "Blockchain", 6),
-                ("How do I verify a QR receipt?", "Each verified document issues a cryptographic receipt containing a QR code. Scanning the QR code directs to a public verification portal displaying tamper-proof ledger validation.", "Verification", 7),
-                ("Where is my verification ID?", "Your verification ID is generated in the format 'VRF-2026-XXXXX' immediately upon submission and is prominently displayed on the verification result screen, downloadable receipt, and your personal user dashboard.", "General", 8),
-                ("What does the heatmap mean?", "The forensic heatmap provides visual transparency into model signals. Green regions denote verified matching anchors; Yellow represents items requiring attention; Orange indicates moderate variance; Red marks high-anomaly regions such as modified identifiers.", "Forensics", 9)
+                ("How do I upload a document?", "Navigate to the 'Verify Document' page, drag and drop your document file (PNG, JPG, or PDF), confirm the consent declaration, and click 'Initiate Verification'.", "general", 1),
+                ("What documents are supported?", "We currently support academic degrees, diplomas, transcripts, and official institutional certificates up to 10MB in PNG, JPG, JPEG, and PDF format.", "general", 2),
+                ("Why is my document suspicious?", "A document is classified as 'Suspicious' when minor discrepancies exist (such as date formats, partial name spelling variances, or compression anomalies).", "general", 3),
+                ("What does risk score mean?", "The risk score is an explainable 0 to 100 rating computed by our deterministic rules engine. 0-20 indicates LOW risk, 21-50 is MEDIUM risk, and 51-100 is HIGH risk.", "general", 4),
+                ("Why did OCR fail?", "OCR may encounter difficulty if the uploaded scan has severe motion blur, low lighting, or resolution under 150 DPI. We recommend uploading a straight, high-contrast scan.", "general", 5),
+                ("What is blockchain verification?", "Our system computes an immutable SHA-256 cryptographic digest of your document and registers a verification receipt on an EVM-compatible blockchain.", "general", 6),
+                ("How do I verify a QR receipt?", "Each verified document issues a cryptographic receipt containing a QR code. Scanning the QR code directs to a public verification portal display.", "general", 7),
+                ("Where is my verification ID?", "Your verification ID is generated immediately upon submission and is prominently displayed on the verification results page.", "general", 8),
+                ("What does the heatmap mean?", "The forensic heatmap provides visual transparency into model signals. Green regions denote verified matching anchors; Yellow represents moderate risk, and Red signals tampering or mismatch.", "general", 9),
             ]
             for q, a, cat, order in default_faqs:
                 db.add(FAQ(question=q, answer=a, category=cat, sort_order=order, is_enabled=True))
@@ -118,7 +119,7 @@ def initialize_database_data():
         # 4. Section 31: Seed Default Website Content
         if db.query(WebsiteContent).count() == 0:
             default_content = [
-                ("hero", "AI + OCR + Blockchain Document Verification", "Institutional grade authenticity verification combining multi-layered optical forensics, machine learning anomaly detection, and immutable EVM blockchain notarization.", {"badge": "Next-Gen Document Security"}, "Start Verification", "/verify"),
+                ("hero", "AI + OCR + Blockchain Document Verification", "Institutional grade authenticity verification combining multi-layered optical forensics, machine learning anomaly detection, and blockchain notarization.", None, None, None),
                 ("features", "Core Architectural Pillars", "Engineered for zero-trust document integrity, transparent explainability, and cryptographic auditability.", {
                     "items": [
                         {"title": "Optical Layout OCR", "desc": "Sub-pixel bounding box coordinate mapping and structured entity normalization."},
@@ -165,11 +166,12 @@ def initialize_database_data():
     finally:
         db.close()
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize on startup
     initialize_database_data()
     yield
+
 
 app = FastAPI(
     title="AI + OCR + ML + Blockchain Document Verification Platform",
@@ -178,19 +180,17 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS Middleware
+cors_origins = settings.CORS_ALLOWED_ORIGINS or ["http://localhost:5173", "http://127.0.0.1:5173"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Static Uploads directory
 app.mount("/uploads", StaticFiles(directory=str(settings.UPLOAD_DIR)), name="uploads")
 
-# Include Routers
 app.include_router(auth_router)
 app.include_router(verification_router)
 app.include_router(public_router)
@@ -199,6 +199,7 @@ app.include_router(faqs_router)
 app.include_router(admin_router)
 app.include_router(owner_router)
 
+
 @app.get("/api/health")
 def health_check():
     return {
@@ -206,5 +207,6 @@ def health_check():
         "service": "Document Verification Platform API",
         "database": "PostgreSQL Connected",
         "blockchain": "EVM Module Active",
-        "ocr_engine": settings.OCR_ENGINE
+        "ocr_engine": settings.OCR_ENGINE,
+        "environment": settings.APP_ENV,
     }
